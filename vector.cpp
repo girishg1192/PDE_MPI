@@ -12,7 +12,7 @@ double boundarySum(int X, int Y);
 int init_Matrix(double **A ,int SIZE)
 {
   boundary= (int)sqrt(SIZE)+1;
-  size = 1/(sqrt(SIZE));
+  size = 1/(float)SIZE;
   for(int i =0; i<SIZE; i++)
   {
     //A[i] = (double *)malloc(SIZE*sizeof(double));
@@ -29,13 +29,10 @@ int init_Matrix(double **A ,int SIZE)
 }
 void freeMatrix(double **A, int SIZE)
 {
-  cout<<"free 1"<<endl;
   for(int i =0; i<SIZE; i++)
   {
     double *free_ptr = A[i];
-    free(free_ptr);
   }
-  cout<<"free 2"<<endl;
 }
 void init_Vector(double *A, int SIZE)
 {
@@ -93,8 +90,8 @@ bool isBoundary(int X, int Y)
 
 double boundaryConditions(int X, int Y)
 {
-  double pt_X = ((double)X)/(boundary+1);
-  double pt_Y = ((double)Y)/(boundary+1);
+  double pt_X = ((double)X)/(boundary);
+  double pt_Y = ((double)Y)/(boundary);
   if(X == 0 || X == boundary)
     return 0.0;
   if(Y == 0)
@@ -106,7 +103,6 @@ double boundaryConditions(int X, int Y)
 
 double boundarySum(int X, int Y)
 {
-  delta = 1.0/(boundary+1);
   double sum=0.0;
   for(int i=-1; i<=1; i=i+2)
     if(isBoundary(X+i, Y))
@@ -137,4 +133,13 @@ void printVector(double *B, int mat_Size)
     cout<<B[i]<<" ";
     cout<<endl;
   }
+}
+void printVectorMat(double *B, int mat_Size)
+{
+  for(int i=0; i<mat_Size; i++)
+  {
+    cout<<B[i]<<" ";
+    if(i % (int)sqrt(mat_Size) == 0)
+      cout<<endl;
+  } 
 }

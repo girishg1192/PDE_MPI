@@ -5,3 +5,4 @@ bool generateMatrix(double **A, int SIZE);
 bool generateVector(double *Res, int SIZE);
 void printMatrix(double **A, int mat_Size);
 void printVector(double *A, int mat_Size);
+void printVectorMat(double *B, int mat_Size);
