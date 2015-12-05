@@ -61,23 +61,6 @@ int main()
   //free(u);
   return(0);
 }
-double vectorDot(double *r, double *rT, int vec_Size)
-{
-  double result = 0.0;
-  for(int i=0; i<vec_Size; i++)
-  {
-    result +=r[i]*rT[i];
-  }
-  //cout<<"Dot result "<<result<<endl;
-  return result;
-}
-void mat_vector_mult(double **mat, double *vec, int edge_Size, double **result)
-{
-  //cout<<endl;
-  for(int i=0; i<edge_Size; i++)
-    for(int j=0; j<edge_Size; j++)
-      *(*result + i)+= mat[i][j] * vec[j];
-}
 
 int krylov_solver(double **A, double *rK, int mat_Size)   //b passed to rk, for first step residual (r0)= b 
 {

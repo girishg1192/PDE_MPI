@@ -6,3 +6,5 @@ bool generateVector(double *Res, int SIZE);
 void printMatrix(double **A, int mat_Size);
 void printVector(double *A, int mat_Size);
 void printVectorMat(double *B, int mat_Size);
+double vectorDot(double *r, double *rT, int vec_Size);
+void mat_vector_mult(double **mat, double *vec, int edge_Size, double **result);

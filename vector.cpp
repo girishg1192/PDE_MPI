@@ -143,3 +143,20 @@ void printVectorMat(double *B, int mat_Size)
       cout<<endl;
   } 
 }
+double vectorDot(double *r, double *rT, int vec_Size)
+{
+  double result = 0.0;
+  for(int i=0; i<vec_Size; i++)
+  {
+    result +=r[i]*rT[i];
+  }
+  //cout<<"Dot result "<<result<<endl;
+  return result;
+}
+void mat_vector_mult(double **mat, double *vec, int edge_Size, double **result)
+{
+  //cout<<endl;
+  for(int i=0; i<edge_Size; i++)
+    for(int j=0; j<edge_Size; j++)
+      *(*result + i)+= mat[i][j] * vec[j];
+}
