@@ -4,6 +4,7 @@
 float delta = 1.0;
 int boundary=0;
 double size = 0;
+#define MIN (1e-15)
 
 using namespace std;
 
@@ -80,6 +81,14 @@ bool generateVector(double *Res, int SIZE)
   }
   return false;
 }
+bool generatePreconditioner(double **A, int SIZE)
+{
+  if(A==NULL)
+    return false;
+  for(int i=0; i<SIZE; i++)
+    A[i][i] = -0.25;
+  return true;
+}
 
 bool isBoundary(int X, int Y)
 {
@@ -126,22 +135,23 @@ void printMatrix(double **A, int mat_Size)
   }
 }
 
-void printVector(double *B, int mat_Size)
+void printVector(double *B, int vec_Size)
 {
-  for(int i=0; i<mat_Size; i++)
+  for(int i=0; i<vec_Size; i++)
   {
     cout<<B[i]<<" ";
     cout<<endl;
   }
 }
-void printVectorMat(double *B, int mat_Size)
+void printVectorMat(double *B, int vec_Size)
 {
-  for(int i=0; i<mat_Size; i++)
+  for(int i=0; i<vec_Size; i++)
   {
-    cout<<B[i]<<" ";
-    if(i % (int)sqrt(mat_Size) == 0)
+    if(i % (int)sqrt(vec_Size) == 0)
       cout<<endl;
+    cout<<B[i]<<" ";
   } 
+  cout<<endl;
 }
 double vectorDot(double *r, double *rT, int vec_Size)
 {
@@ -155,8 +165,14 @@ double vectorDot(double *r, double *rT, int vec_Size)
 }
 void mat_vector_mult(double **mat, double *vec, int edge_Size, double **result)
 {
-  //cout<<endl;
   for(int i=0; i<edge_Size; i++)
     for(int j=0; j<edge_Size; j++)
       *(*result + i)+= mat[i][j] * vec[j];
+}
+bool checkConvergence(double *vec, int vec_Size)
+{
+  int min_ctr=0;
+  for(int i=0; i<vec_Size; i++)
+    if(abs(vec[i]) > MIN) return false;  //if any value is greater than minimum
+  return true;
 }
