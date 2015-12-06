@@ -7,7 +7,8 @@ extern "C" int dgetrf_(int* SIZE1, int* SIZE2, double* a, int* lda, int* ipiv, i
 extern "C" void dgetrs_(char *TRANS, int *N, int *NRHS, double *A, int *LDA, int *IPIV, double *B, int *LDB, int *INFO );
 extern "C" void dgesv_(int *TRANS, int *N, double *A, int *LDA, int *IPIV, double *B, int *LDB, int *INFO );
 
-int krylov_solver(double **A, double *rK, int mat_Size);
+int krylov_solver(struct sparse *A, double *rK, int mat_Size);
+
 
 int main()
 {
@@ -31,6 +32,12 @@ int main()
 
   double **A = new double*[mat_Size];
   double *B = new double[mat_Size];
+  struct sparse A_sparse;
+
+  A_sparse.values= new double[mat_Size*mat_Size];
+  A_sparse.col_ind = new int[mat_Size*mat_Size];
+  A_sparse.row_ptr = new int[mat_Size];
+  A_sparse.nnz = mat_Size;
 
 
   init_Matrix(A, mat_Size);
@@ -38,12 +45,14 @@ int main()
 
   generateMatrix(A, SIZE);
   generateVector(B, SIZE);
+  generateSparse(&A_sparse);
 
- // printMatrix(A, mat_Size);
+  //printMatrix(A, mat_Size);
  // printVector(B, mat_Size);
+  //printSparse(&A_sparse, mat_Size);
 
   //cout<<endl;
-  krylov_solver(A, B, mat_Size);
+  krylov_solver(&A_sparse, B, mat_Size);
   //cout<<endl<<endl;
  // printVector(B,mat_Size);
  
@@ -52,7 +61,7 @@ int main()
   return(0);
 }
 
-int krylov_solver(double **A, double *rK, int mat_Size)   //b passed to rk, for first step residual (r0)= b 
+int krylov_solver(struct sparse *A, double *rK, int mat_Size)   //b passed to rk, for first step residual (r0)= b 
 {
   bool is_converge = false;
   double alpha_k, beta_k;
@@ -78,7 +87,8 @@ int krylov_solver(double **A, double *rK, int mat_Size)   //b passed to rk, for 
   for(k =0; k<1000 && !is_converge; k++)
   {
     memset(a_norm, 0, mat_Size*sizeof(double));
-    mat_vector_mult(A, p_k, mat_Size, &a_norm);   //Stores the result of the matrix vector multiplication
+    //mat_vector_mult(A, p_k, mat_Size, &a_norm);   //Stores the result of the matrix vector multiplication
+    sparse_mat_vector(A, p_k, mat_Size, &a_norm);
 
     double rK_dot = vectorDot(rK, z_k, mat_Size);    //Stores the value of the dot product of the residual
 
@@ -105,9 +115,8 @@ int krylov_solver(double **A, double *rK, int mat_Size)   //b passed to rk, for 
   for(k =0; k<100 && !is_converge; k++)
   {
     memset(a_norm, 0, mat_Size*sizeof(double));
-    mat_vector_mult(A, p_k, mat_Size, &a_norm);   //Stores the result of the matrix vector multiplication
- //   printVector(a_norm, mat_Size);
-    //cout<<endl;
+    //mat_vector_mult(A, p_k, mat_Size, &a_norm);   //Stores the result of the matrix vector multiplication
+    sparse_mat_vector(A, p_k, mat_Size, &a_norm);
 
     double rK_dot = vectorDot(rK, rK, mat_Size);    //Stores the value of the dot product of the residual
 
@@ -125,7 +134,7 @@ int krylov_solver(double **A, double *rK, int mat_Size)   //b passed to rk, for 
   cout<<k<<" itern\n";
 #endif
 
-  //printVector(result_k, mat_Size);
+  //printVector(rK, mat_Size);
   printVectorMat(result_k, mat_Size);
   cout<<endl;
   delete[] p_k;

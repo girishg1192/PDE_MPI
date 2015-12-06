@@ -1,6 +1,8 @@
 #include<stdlib.h>
 #include<cmath>
 #include<iostream>
+#include "vector.h"
+
 float delta = 1.0;
 int boundary=0;
 double size = 0;
@@ -69,6 +71,47 @@ bool generateMatrix(double **A, int SIZE)
   }
   return true;
 }
+
+void generateSparse(struct sparse *A)
+{
+  double *val = A->values;
+  int *col_ind = A->col_ind;
+  int *row_ptr = A->row_ptr;
+  int SIZE = A->nnz;
+  //int val[SIZE*SIZE], row_ptr[SIZE+1], col_ind[SIZE*SIZE];
+  int N = sqrt(SIZE);
+  unsigned int nnz=0;   //NonZero integers
+  unsigned int vector_sizes = SIZE;
+  row_ptr[0] = 0;
+  for(int i=0; i<SIZE; i++)
+  {
+    if((i-N)>=0)
+    {
+      val[nnz] = 1.0;
+      col_ind[nnz++] = i-N;
+    }
+    if((i-1)>=0 && i%N!=0)
+    {
+      val[nnz] = 1;
+      col_ind[nnz++] = i-1;
+    }
+    val[nnz] = -4;
+    col_ind[nnz++] = i;
+    if((i+1)>=0 && (i+1)%N!=0)
+    {
+      val[nnz] = 1;
+      col_ind[nnz++] = i+1;
+    }
+    if(i+N<(SIZE))
+    {
+      val[nnz] = 1;
+      col_ind[nnz++] = i+N;
+    }
+    row_ptr[i+1] = nnz;
+  }
+  A->nnz = nnz;
+}
+
 bool generateVector(double *Res, int SIZE)
 {
   int X,Y;
@@ -153,6 +196,18 @@ void printVectorMat(double *B, int vec_Size)
   } 
   cout<<endl;
 }
+void printSparse(struct sparse *A, int mat_Size)
+{
+  cout<<"Values \n";
+  for(int i=0; i<A->nnz; i++)
+    cout<<A->values[i]<<" ";
+  cout<<endl<<"Col: \n";
+  for(int i=0; i<A->nnz; i++)
+    cout<<A->col_ind[i]<<" ";
+  cout<<endl<<"Row pointers\n";
+  for(int i=0; i<(mat_Size+1); i++)
+    cout<<A->row_ptr[i]<<" ";
+}
 double vectorDot(double *r, double *rT, int vec_Size)
 {
   double result = 0.0;
@@ -168,6 +223,12 @@ void mat_vector_mult(double **mat, double *vec, int edge_Size, double **result)
   for(int i=0; i<edge_Size; i++)
     for(int j=0; j<edge_Size; j++)
       *(*result + i)+= mat[i][j] * vec[j];
+}
+void sparse_mat_vector(struct sparse *A, double *vec, int edge_Size, double **result)
+{
+  for(int i=0; i<edge_Size; i++)
+    for(int j=A->row_ptr[i]; j<A->row_ptr[i+1]; j++)
+      *(*result + i) += A->values[j]*vec[A->col_ind[j]];
 }
 bool checkConvergence(double *vec, int vec_Size)
 {
