@@ -10,9 +10,10 @@ struct sparse;
  * generatePreconditioner: Generates jacobi preconditioner
  */
 bool generateMatrix(double **A, int SIZE);
+void generateSparse(struct sparse *A);
 bool generateVector(double *Res, int SIZE);
 bool generatePreconditioner(double **A, int SIZE);
-void generateSparse(struct sparse *A);
+bool generateSparsePreconditioner(struct sparse *A);
 
 /*Print routines for debugging*/
 void printMatrix(double **A, int mat_Size);

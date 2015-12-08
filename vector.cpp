@@ -132,6 +132,22 @@ bool generatePreconditioner(double **A, int SIZE)
     A[i][i] = -0.25;
   return true;
 }
+bool generateSparsePreconditioner(struct sparse *A)
+{
+  double *val = A->values;
+  int *col_ind = A->col_ind;
+  int *row_ptr = A->row_ptr;
+  int SIZE = A->nnz;
+  int nnz=0;
+  row_ptr[0] = 0;
+  for(int k=0; k<(SIZE*SIZE); k++)
+  {
+    val[k] = -0.25;
+    col_ind[k] = k;
+    row_ptr[k+1] = ++nnz;
+  }
+  return true;
+}
 
 bool isBoundary(int X, int Y)
 {
@@ -198,6 +214,7 @@ void printVectorMat(double *B, int vec_Size)
 }
 void printSparse(struct sparse *A, int mat_Size)
 {
+  cout<<A->nnz<<endl;
   cout<<"Values \n";
   for(int i=0; i<A->nnz; i++)
     cout<<A->values[i]<<" ";
@@ -207,6 +224,7 @@ void printSparse(struct sparse *A, int mat_Size)
   cout<<endl<<"Row pointers\n";
   for(int i=0; i<(mat_Size+1); i++)
     cout<<A->row_ptr[i]<<" ";
+  cout<<endl;
 }
 double vectorDot(double *r, double *rT, int vec_Size)
 {
@@ -228,7 +246,7 @@ void sparse_mat_vector(struct sparse *A, double *vec, int edge_Size, double **re
 {
   for(int i=0; i<edge_Size; i++)
     for(int j=A->row_ptr[i]; j<A->row_ptr[i+1]; j++)
-      *(*result + i) += A->values[j]*vec[A->col_ind[j]];
+      *(*result + i)+= A->values[j]*vec[A->col_ind[j]];
 }
 bool checkConvergence(double *vec, int vec_Size)
 {

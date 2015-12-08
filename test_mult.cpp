@@ -36,7 +36,7 @@ int main()
 
   A_sparse.values= new double[mat_Size*mat_Size];
   A_sparse.col_ind = new int[mat_Size*mat_Size];
-  A_sparse.row_ptr = new int[mat_Size];
+  A_sparse.row_ptr = new int[mat_Size+1];
   A_sparse.nnz = mat_Size;
 
 
@@ -49,14 +49,16 @@ int main()
 
   //printMatrix(A, mat_Size);
  // printVector(B, mat_Size);
-  //printSparse(&A_sparse, mat_Size);
+  printSparse(&A_sparse, mat_Size);
 
   //cout<<endl;
   krylov_solver(&A_sparse, B, mat_Size);
   //cout<<endl<<endl;
  // printVector(B,mat_Size);
- 
-  delete[] A;
+
+  delete[] A_sparse.values;
+  delete[] A_sparse.col_ind;
+  delete[] A_sparse.row_ptr;
   delete[] B;
   return(0);
 }
@@ -71,16 +73,27 @@ int krylov_solver(struct sparse *A, double *rK, int mat_Size)   //b passed to rk
   memset(result_k, 0, mat_Size*sizeof(double));
   double *a_norm = new double[mat_Size];
   memset(a_norm, 0, mat_Size*sizeof(double));
+  if(p_k==NULL || result_k==NULL || a_norm==NULL)
+    return -1;
 
 #ifndef PRECOND
-  double **M_precondition = new double*[mat_Size];    //declare and initialize preconditioning matrix
-  init_Matrix(M_precondition, mat_Size);
-  generatePreconditioner(M_precondition, mat_Size);
+  //double **M_precondition = new double*[mat_Size];    //declare and initialize preconditioning matrix
+  struct sparse M_precondition;
+  M_precondition.values= new double[mat_Size*mat_Size];
+  M_precondition.col_ind = new int[mat_Size*mat_Size];
+  M_precondition.row_ptr = new int[mat_Size+1];
+  M_precondition.nnz = mat_Size;
+
+  //init_Matrix(M_precondition, mat_Size);
+  //generatePreconditioner(M_precondition, mat_Size);
+  generateSparsePreconditioner(&M_precondition);
 
   double *z_k = new double[mat_Size];
   memset(z_k, 0, mat_Size*sizeof(double));
 
-  mat_vector_mult(M_precondition, rK, mat_Size, &z_k);
+  //mat_vector_mult(M_precondition, rK, mat_Size, &z_k);
+  sparse_mat_vector(&M_precondition, rK, mat_Size, &z_k);
+  printSparse(&M_precondition, mat_Size);
 
   memcpy(p_k, z_k, mat_Size*sizeof(double));   //Stores minimizer for kth step pk
   int k;
@@ -98,15 +111,17 @@ int krylov_solver(struct sparse *A, double *rK, int mat_Size)   //b passed to rk
       result_k[i] = result_k[i] + alpha_k*p_k[i];
       rK[i] = rK[i] - alpha_k*a_norm[i];
     }
-    mat_vector_mult(M_precondition, rK, mat_Size, &z_k);   //Stores the result of the matrix vector multiplication
+   // mat_vector_mult(M_precondition, rK, mat_Size, &z_k);   //Stores the result of the matrix vector multiplication
+    sparse_mat_vector(&M_precondition, rK, mat_Size, &z_k);
     beta_k = vectorDot(z_k, rK, mat_Size)/rK_dot;
     for(int i=0; i<mat_Size; i++)
       p_k[i] = z_k[i] + beta_k*p_k[i];
     is_converge = checkConvergence(rK, mat_Size);
   }
   cout<<k<<" iter\n";
-  printVector(rK, mat_Size);
-  delete[] M_precondition;
+  delete[] M_precondition.values;
+  delete[] M_precondition.col_ind;
+  delete[] M_precondition.row_ptr;
 #else
   int k;
 
@@ -134,7 +149,6 @@ int krylov_solver(struct sparse *A, double *rK, int mat_Size)   //b passed to rk
   cout<<k<<" itern\n";
 #endif
 
-  //printVector(rK, mat_Size);
   printVectorMat(result_k, mat_Size);
   cout<<endl;
   delete[] p_k;
