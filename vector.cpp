@@ -1,4 +1,5 @@
 #include<stdlib.h>
+#include<cstring>
 #include<cmath>
 #include<iostream>
 #include "vector.h"
@@ -72,7 +73,7 @@ bool generateMatrix(double **A, int SIZE)
   return true;
 }
 
-void generateSparse(struct sparse *A)
+void generateSparse(struct sparse *A, int start, int end)
 {
   double *val = A->values;
   int *col_ind = A->col_ind;
@@ -81,9 +82,8 @@ void generateSparse(struct sparse *A)
   //int val[SIZE*SIZE], row_ptr[SIZE+1], col_ind[SIZE*SIZE];
   int N = sqrt(SIZE);
   unsigned int nnz=0;   //NonZero integers
-  unsigned int vector_sizes = SIZE;
   row_ptr[0] = 0;
-  for(int i=0; i<SIZE; i++)
+  for(int i=start; i<end; i++)
   {
     if((i-N)>=0)
     {
@@ -107,20 +107,21 @@ void generateSparse(struct sparse *A)
       val[nnz] = 1;
       col_ind[nnz++] = i+N;
     }
-    row_ptr[i+1] = nnz;
+    row_ptr[i+1 - start] = nnz;
   }
   A->nnz = nnz;
 }
 
-bool generateVector(double *Res, int SIZE)
+bool generateVector(double *Res, int SIZE, int start, int end)
 {
   int X,Y;
+  int point;
   double val;
-  for(int k = 0; k< (SIZE*SIZE); k++)
+  for(int k = start; k< end; k++)
   {
     X = k%SIZE+1;
     Y = k/SIZE + 1;
-    Res[k] = boundarySum(X,Y);
+    Res[k-start] = boundarySum(X,Y);
   }
   return false;
 }
@@ -228,12 +229,12 @@ void printSparse(struct sparse *A, int mat_Size)
 }
 double vectorDot(double *r, double *rT, int vec_Size)
 {
-  double result = 0.0;
+  double result_local= 0.0, result= 0.0;
   for(int i=0; i<vec_Size; i++)
   {
-    result +=r[i]*rT[i];
+    result_local +=r[i]*rT[i];
   }
-  //cout<<"Dot result "<<result<<endl;
+  MPI_Allreduce(&result_local, &result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   return result;
 }
 void mat_vector_mult(double **mat, double *vec, int edge_Size, double **result)

@@ -1,42 +1,68 @@
 #include <iostream>
 #include "vector.h"
+#include <cmath>
 
 using namespace std;
 
-extern "C" int dgetrf_(int* SIZE1, int* SIZE2, double* a, int* lda, int* ipiv, int* info);
-extern "C" void dgetrs_(char *TRANS, int *N, int *NRHS, double *A, int *LDA, int *IPIV, double *B, int *LDB, int *INFO );
-extern "C" void dgesv_(int *TRANS, int *N, double *A, int *LDA, int *IPIV, double *B, int *LDB, int *INFO );
-
+int npes, rank;
 int krylov_solver(struct sparse *A, double *rK, int mat_Size);
 
 
-int main()
+void Init_MPI(int *argc, char ***argv)
+{
+  int err;
+  err = MPI_Init(argc, argv);
+  err = MPI_Comm_size(MPI_COMM_WORLD, &npes);
+  err = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+}
+
+void partition(unsigned long int* load_, unsigned long int* start_, int Ni)
+{
+  int load =0, start =0;
+	int load_division = 1;
+#ifndef SCALING
+	load_division = npes;
+#endif
+
+	load = (Ni/load_division);
+	start = (Ni/load_division)*rank;
+	if(rank < (Ni)%load_division)
+	{
+		load++;	
+		start = start + rank;
+	}
+	else if(rank == Ni%npes)
+	{
+		start = start + rank;
+	}
+	else
+	{
+		start = start + Ni%npes;
+	}
+  *start_ = start;
+  *load_ = load;
+}
+
+int main(int argc, char **argv)
 {
   std::cout.precision(15);
 
 
   int N =10;
-  cin>>N;
-  int SIZE=N-2, mat_Size= SIZE*SIZE;
-#if 0
-  int LDA = mat_Size;
-  int LDB = mat_Size;
-  int ipiv[mat_Size];
-  int info;
-  int nrhs = 1;
-  char trans = 'N';
-#endif
+  long unsigned int load, start;
+  Init_MPI(&argc, &argv);
 
-  //double **u=(double **)malloc((N*N)*sizeof(double*));
-  //init_Matrix(u, N*N);
+  int SIZE=N-2, mat_Size= SIZE*SIZE;
+  partition(&load, &start, mat_Size);
+  cout<<rank<<":"<<start<<" <--start point, load --> "<<load<<endl<<" PEs"<<npes<<endl;
 
   double **A = new double*[mat_Size];
-  double *B = new double[mat_Size];
+  double *B = new double[load];
   struct sparse A_sparse;
 
-  A_sparse.values= new double[mat_Size*mat_Size];
-  A_sparse.col_ind = new int[mat_Size*mat_Size];
-  A_sparse.row_ptr = new int[mat_Size+1];
+  A_sparse.values= new double[load*mat_Size];
+  A_sparse.col_ind = new int[load*mat_Size];
+  A_sparse.row_ptr = new int[load+1];
   A_sparse.nnz = mat_Size;
 
 
@@ -44,17 +70,18 @@ int main()
   init_Vector(B, mat_Size);
 
   generateMatrix(A, SIZE);
-  generateVector(B, SIZE);
-  generateSparse(&A_sparse);
+  generateVector(B, SIZE, start, start+load);
+  generateSparse(&A_sparse, start, start+load);
 
   //printMatrix(A, mat_Size);
- // printVector(B, mat_Size);
-  printSparse(&A_sparse, mat_Size);
+  //printVector(B, load);
+ // printSparse(&A_sparse, load);
 
   //cout<<endl;
   krylov_solver(&A_sparse, B, mat_Size);
   //cout<<endl<<endl;
- // printVector(B,mat_Size);
+  // printVector(B,mat_Size);
+  return 0;
 
   delete[] A_sparse.values;
   delete[] A_sparse.col_ind;
@@ -111,7 +138,7 @@ int krylov_solver(struct sparse *A, double *rK, int mat_Size)   //b passed to rk
       result_k[i] = result_k[i] + alpha_k*p_k[i];
       rK[i] = rK[i] - alpha_k*a_norm[i];
     }
-   // mat_vector_mult(M_precondition, rK, mat_Size, &z_k);   //Stores the result of the matrix vector multiplication
+    // mat_vector_mult(M_precondition, rK, mat_Size, &z_k);   //Stores the result of the matrix vector multiplication
     sparse_mat_vector(&M_precondition, rK, mat_Size, &z_k);
     beta_k = vectorDot(z_k, rK, mat_Size)/rK_dot;
     for(int i=0; i<mat_Size; i++)
@@ -133,7 +160,9 @@ int krylov_solver(struct sparse *A, double *rK, int mat_Size)   //b passed to rk
     //mat_vector_mult(A, p_k, mat_Size, &a_norm);   //Stores the result of the matrix vector multiplication
     sparse_mat_vector(A, p_k, mat_Size, &a_norm);
 
-    double rK_dot = vectorDot(rK, rK, mat_Size);    //Stores the value of the dot product of the residual
+    double rK_dot= vectorDot(rK, rK, mat_Size);    //Stores the value of the dot product of the residual
+    cout<<"result "<<rK_dot<<endl;
+    return 0;
 
     alpha_k = rK_dot/(vectorDot(p_k, a_norm, mat_Size));
     for(int i=0; i<mat_Size; i++)

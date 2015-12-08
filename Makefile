@@ -1,4 +1,4 @@
-CC = g++
+CC = mpicxx
 CFILES = test_mult.cpp
 ifeq ($(val), 1)
 	DFLAGS = -DPRECOND

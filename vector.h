@@ -1,3 +1,6 @@
+#include<cstring>
+#include "mpi.h"
+
 /* Routines to initialize memory for vectors/Matrices*/
 int init_Matrix(double **A ,int SIZE);
 void freeMatrix(double **A, int SIZE);
@@ -10,8 +13,8 @@ struct sparse;
  * generatePreconditioner: Generates jacobi preconditioner
  */
 bool generateMatrix(double **A, int SIZE);
-void generateSparse(struct sparse *A);
-bool generateVector(double *Res, int SIZE);
+void generateSparse(struct sparse *A, int start, int end);
+bool generateVector(double *Res, int SIZE, int start, int end);
 bool generatePreconditioner(double **A, int SIZE);
 bool generateSparsePreconditioner(struct sparse *A);
 
