@@ -31,7 +31,7 @@ void printSparse(struct sparse *A, int mat_Size);
  */
 double vectorDot(double *r, double *rT, int vec_Size);
 void mat_vector_mult(double **mat, double *vec, int edge_Size, double **result);
-void sparse_mat_vector(struct sparse *A, double *vec, int edge_Size, double **result);
+void sparse_mat_vector(struct sparse *A, double *vec, double **result);
 
 /* checks convergence of the algorithm given the residual vector vec
  */

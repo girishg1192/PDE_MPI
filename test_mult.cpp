@@ -4,8 +4,13 @@
 
 using namespace std;
 
+int N =10;
+long unsigned int load, start;
 int npes, rank;
-int krylov_solver(struct sparse *A, double *rK, int mat_Size);
+
+MPI_Comm comm = MPI_COMM_WORLD;
+
+int krylov_solver();
 
 
 void Init_MPI(int *argc, char ***argv)
@@ -48,58 +53,45 @@ int main(int argc, char **argv)
   std::cout.precision(15);
 
 
-  int N =10;
-  long unsigned int load, start;
   Init_MPI(&argc, &argv);
 
-  int SIZE=N-2, mat_Size= SIZE*SIZE;
-  partition(&load, &start, mat_Size);
-  cout<<rank<<":"<<start<<" <--start point, load --> "<<load<<endl<<" PEs"<<npes<<endl;
+  krylov_solver();
 
-  double **A = new double*[mat_Size];
-  double *B = new double[load];
-  struct sparse A_sparse;
-
-  A_sparse.values= new double[load*mat_Size];
-  A_sparse.col_ind = new int[load*mat_Size];
-  A_sparse.row_ptr = new int[load+1];
-  A_sparse.nnz = mat_Size;
-
-
-  init_Matrix(A, mat_Size);
-  init_Vector(B, mat_Size);
-
-  generateMatrix(A, SIZE);
-  generateVector(B, SIZE, start, start+load);
-  generateSparse(&A_sparse, start, start+load);
-
-  //printMatrix(A, mat_Size);
-  //printVector(B, load);
- // printSparse(&A_sparse, load);
-
-  //cout<<endl;
-  krylov_solver(&A_sparse, B, mat_Size);
-  //cout<<endl<<endl;
-  // printVector(B,mat_Size);
-  return 0;
-
-  delete[] A_sparse.values;
-  delete[] A_sparse.col_ind;
-  delete[] A_sparse.row_ptr;
-  delete[] B;
+  MPI_Finalize();
   return(0);
 }
 
-int krylov_solver(struct sparse *A, double *rK, int mat_Size)   //b passed to rk, for first step residual (r0)= b 
+int krylov_solver()   
 {
+  int SIZE=N-2, mat_Size= SIZE*SIZE;
+  partition(&load, &start, mat_Size);
+
+  double **A_ = new double*[mat_Size];
+  double *rK = new double[load];
+  struct sparse A;
+
+  A.values= new double[load*mat_Size];
+  A.col_ind = new int[load*mat_Size];
+  A.row_ptr = new int[load+1];
+  A.nnz = mat_Size;
+
+
+  init_Matrix(A_, mat_Size);
+
+  generateVector(rK, SIZE, start, start+load);
+  if(rank==0)printVector(rK, load);
+  cout<<endl;
+  generateSparse(&A, start, start+load);
+
   bool is_converge = false;
   double alpha_k, beta_k;
   double *p_k = new double[mat_Size];
 
-  double *result_k = new double[mat_Size];    //Stores xk for kth step
-  memset(result_k, 0, mat_Size*sizeof(double));
-  double *a_norm = new double[mat_Size];
-  memset(a_norm, 0, mat_Size*sizeof(double));
+  double result_k[load];
+  memset(result_k, 0, load*sizeof(double));
+
+  double *a_norm = new double[load];
+  memset(a_norm, 0, load*sizeof(double));
   if(p_k==NULL || result_k==NULL || a_norm==NULL)
     return -1;
 
@@ -119,16 +111,16 @@ int krylov_solver(struct sparse *A, double *rK, int mat_Size)   //b passed to rk
   memset(z_k, 0, mat_Size*sizeof(double));
 
   //mat_vector_mult(M_precondition, rK, mat_Size, &z_k);
-  sparse_mat_vector(&M_precondition, rK, mat_Size, &z_k);
+  sparse_mat_vector(&M_precondition, rK, &z_k);
   printSparse(&M_precondition, mat_Size);
 
   memcpy(p_k, z_k, mat_Size*sizeof(double));   //Stores minimizer for kth step pk
   int k;
   for(k =0; k<1000 && !is_converge; k++)
   {
-    memset(a_norm, 0, mat_Size*sizeof(double));
+    memset(a_norm, 0, load*sizeof(double));
     //mat_vector_mult(A, p_k, mat_Size, &a_norm);   //Stores the result of the matrix vector multiplication
-    sparse_mat_vector(A, p_k, mat_Size, &a_norm);
+    sparse_mat_vector(A, p_k, &a_norm);
 
     double rK_dot = vectorDot(rK, z_k, mat_Size);    //Stores the value of the dot product of the residual
 
@@ -152,36 +144,60 @@ int krylov_solver(struct sparse *A, double *rK, int mat_Size)   //b passed to rk
 #else
   int k;
 
-  memcpy(p_k, rK, mat_Size*sizeof(double));   //Stores minimizer for kth step pk
+  memcpy(p_k, rK, load*sizeof(double));   //Stores minimizer for kth step pk
 
-  for(k =0; k<100 && !is_converge; k++)
+  for(k =0; k<100; k++)
   {
-    memset(a_norm, 0, mat_Size*sizeof(double));
     //mat_vector_mult(A, p_k, mat_Size, &a_norm);   //Stores the result of the matrix vector multiplication
-    sparse_mat_vector(A, p_k, mat_Size, &a_norm);
+    memset(a_norm, 0, load*sizeof(double));
+    sparse_mat_vector(&A, p_k, &a_norm);
 
-    double rK_dot= vectorDot(rK, rK, mat_Size);    //Stores the value of the dot product of the residual
-    cout<<"result "<<rK_dot<<endl;
-    return 0;
-
-    alpha_k = rK_dot/(vectorDot(p_k, a_norm, mat_Size));
-    for(int i=0; i<mat_Size; i++)
+    double rK_dot= vectorDot(rK, rK, load);    //Stores the value of the dot product of the residual
+    alpha_k = rK_dot/(vectorDot(p_k, a_norm, load));
+    if(rank==0)cout<<"alpha_k "<<alpha_k<<endl;
+    for(int i=0; i<load; i++)
     {
       result_k[i] = result_k[i] + alpha_k*p_k[i];
       rK[i] = rK[i] - alpha_k*a_norm[i];
     }
-    beta_k = vectorDot(rK, rK, mat_Size)/rK_dot;
-    for(int i=0; i<mat_Size; i++)
+    if(rank == 0)
+      printVector(rK, load);
+    beta_k = vectorDot(rK, rK, load)/rK_dot;
+    cout<<"beta_k "<<beta_k<<endl;
+    if(rank==0)cout<<endl<<beta_k<<endl;
+    for(int i=0; i<load; i++)
       p_k[i] = rK[i] + beta_k*p_k[i];
-    is_converge = checkConvergence(rK, mat_Size);
+//    is_converge = checkConvergence(rK, load);
+    if(rank ==0)
+    {
+//      printVector(result_k, load);
+ //     cout<<endl;
+    }
   }
-  cout<<k<<" itern\n";
 #endif
-
-  printVectorMat(result_k, mat_Size);
-  cout<<endl;
+ 
+//  if(rank == 0)
+  {
+    double B_vector[mat_Size];
+    init_Vector(B_vector, mat_Size);
+    int rcount[npes], displs[npes];
+//    cout<<"final\n";
+//    printVector(result_k, load);
+    for(int i=0, start=0; i<npes; i++)
+    {
+      displs[i] = start;
+      rcount[i] = mat_Size/npes;
+      if(i < mat_Size%npes)
+        rcount[i]++;
+      start+=rcount[i];
+//      cout<<displs[i]<<"<-- ofset count-> "<<rcount[i]<<" "<<rank<<endl; 
+    }
+    MPI_Allgatherv(result_k, rcount[rank], MPI_DOUBLE, &B_vector[0], rcount, displs, MPI_DOUBLE, MPI_COMM_WORLD);
+  if(rank==0)
+  printVectorMat(B_vector, mat_Size);
+  }
+//}
   delete[] p_k;
-  delete[] result_k;
   delete[] a_norm;
-  return -1;
+  return 0;
 }

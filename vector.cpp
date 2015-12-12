@@ -7,6 +7,7 @@
 float delta = 1.0;
 int boundary=0;
 double size = 0;
+extern int rank, npes, N;
 #define MIN (1e-15)
 
 using namespace std;
@@ -215,7 +216,7 @@ void printVectorMat(double *B, int vec_Size)
 }
 void printSparse(struct sparse *A, int mat_Size)
 {
-  cout<<A->nnz<<endl;
+  cout<<A->nnz<<" "<<mat_Size<<endl;
   cout<<"Values \n";
   for(int i=0; i<A->nnz; i++)
     cout<<A->values[i]<<" ";
@@ -243,11 +244,29 @@ void mat_vector_mult(double **mat, double *vec, int edge_Size, double **result)
     for(int j=0; j<edge_Size; j++)
       *(*result + i)+= mat[i][j] * vec[j];
 }
-void sparse_mat_vector(struct sparse *A, double *vec, int edge_Size, double **result)
+void sparse_mat_vector(struct sparse *A, double *vec, double **result_)
 {
-  for(int i=0; i<edge_Size; i++)
+  double *result = *result_;
+  int mat_Size = (N-2)*(N-2);
+  double B_vector[mat_Size];
+  int rcount[npes], displs[npes];
+  for(int i=0, start=0; i<npes; i++)
+  {
+    displs[i] = start;
+    rcount[i] = mat_Size/npes;
+    if(i< mat_Size%npes)
+      rcount[i]++;
+    start+=rcount[i];
+  }
+
+  MPI_Allgatherv(&vec[0], rcount[rank], MPI_DOUBLE, &B_vector[0], rcount, displs, MPI_DOUBLE, MPI_COMM_WORLD);
+
+  for(int i=0; i<rcount[rank]; i++)
     for(int j=A->row_ptr[i]; j<A->row_ptr[i+1]; j++)
-      *(*result + i)+= A->values[j]*vec[A->col_ind[j]];
+    {
+      result[i] += A->values[j]*B_vector[A->col_ind[j]];
+    }
+  *result_=result;
 }
 bool checkConvergence(double *vec, int vec_Size)
 {
