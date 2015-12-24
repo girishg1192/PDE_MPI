@@ -131,23 +131,20 @@ bool generatePreconditioner(double **A, int SIZE)
   if(A==NULL)
     return false;
   for(int i=0; i<SIZE; i++)
-    A[i][i] = -0.25;
+    A[i][i] = 0.25;
   return true;
 }
-bool generateSparsePreconditioner(struct sparse *A)
+bool generateSparsePreconditioner(struct sparse *A, int start, int end)
 {
-  double *val = A->values;
-  int *col_ind = A->col_ind;
-  int *row_ptr = A->row_ptr;
-  int SIZE = A->nnz;
   int nnz=0;
-  row_ptr[0] = 0;
-  for(int k=0; k<(SIZE*SIZE); k++)
+  A->row_ptr[0] = 0;
+  for(int k=start; k<end; k++)
   {
-    val[k] = -0.25;
-    col_ind[k] = k;
-    row_ptr[k+1] = ++nnz;
+    A->values[k-start] = 0.25;
+    A->col_ind[k-start] = k;
+    A->row_ptr[k-start+1] = ++nnz;
   }
+  A->nnz = nnz;
   return true;
 }
 
@@ -250,6 +247,10 @@ void sparse_mat_vector(struct sparse *A, double *vec, double **result_)
   int mat_Size = (N-2)*(N-2);
   double B_vector[mat_Size];
   int rcount[npes], displs[npes];
+  /*
+   * Generating count and offset vectors for each processors
+   * required by MPI_Allgatherv
+   */
   for(int i=0, start=0; i<npes; i++)
   {
     displs[i] = start;
@@ -258,7 +259,6 @@ void sparse_mat_vector(struct sparse *A, double *vec, double **result_)
       rcount[i]++;
     start+=rcount[i];
   }
-
   MPI_Allgatherv(&vec[0], rcount[rank], MPI_DOUBLE, &B_vector[0], rcount, displs, MPI_DOUBLE, MPI_COMM_WORLD);
 
   for(int i=0; i<rcount[rank]; i++)

@@ -16,7 +16,7 @@ bool generateMatrix(double **A, int SIZE);
 void generateSparse(struct sparse *A, int start, int end);
 bool generateVector(double *Res, int SIZE, int start, int end);
 bool generatePreconditioner(double **A, int SIZE);
-bool generateSparsePreconditioner(struct sparse *A);
+bool generateSparsePreconditioner(struct sparse *A, int start, int end);
 
 /*Print routines for debugging*/
 void printMatrix(double **A, int mat_Size);
